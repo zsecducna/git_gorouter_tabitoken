@@ -43,7 +43,7 @@ const newClient = () => new ImapFlow({
   host: process.env.MAIL_HOST ?? 'mail.duke-kr.win',
   port: Number(process.env.MAIL_PORT ?? 993),
   secure: true,
-  auth: { user: env.MAIL_USER ?? 'me@' + MAIL_DOMAIN, pass: env.MAIL_PASS },
+  auth: { user: env.MAIL_CATCHALL_USER ?? 'me@' + MAIL_DOMAIN, pass: env.MAIL_PASS },
   logger: false,
 });
 

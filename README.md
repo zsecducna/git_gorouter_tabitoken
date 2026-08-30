@@ -119,6 +119,41 @@ Flow per account, one fresh browser each: `/signup` → fill → **Create accoun
 (gorouter, then tabitoken) → create key (group "default") → **route-intercept**
 the `/api/token/<id>/key` response → save `sk-…` key.
 
+### Windows (PowerShell) quickstart
+
+```powershell
+# prereqs
+winget install OpenJS.NodeJS.LTS Git.Git
+# clone + deps
+cd $env:USERPROFILE\Desktop
+git clone git@github.com:zsecducna/git_gorouter_tabitoken.git gorouter-auto
+cd gorouter-auto
+npm install cloakbrowser playwright-core imapflow mailparser
+
+# .env — OTP via your IMAP catch-all
+@"
+MAIL_HOST=mail.duke-kr.win
+MAIL_USER=me@duke-kr.win
+MAIL_PASS=xxx
+"@ | Out-File -Encoding ascii .env
+
+# proxies.txt — one host:port:user:pass per line
+# provision randomized batch + smoke-test one account
+node gen-accounts.mjs 1000 duke-kr.win --random
+$env:FAST="1"; node pipeline.mjs 1 u00243a5692; Remove-Item Env:FAST
+
+# 6 FAST lanes — claims arbitrate, no ranges needed
+$env:FAST="1"
+1..6 | ForEach-Object { Start-Job -Name "lane$_" -ScriptBlock {
+  param($n) Set-Location $using:PWD; node pipeline.mjs *> "p$n.log" } -ArgumentList $_ }
+Get-Job                                  # lane status
+Stop-Job lane*; Remove-Job lane*         # stop all
+```
+
+Windows notes: the macOS window-hide calls no-op silently (browsers stay
+visible — slide DataDome challenges as they appear); everything else
+(LRU proxies, claims, WAL, IMAP IDLE) is platform-neutral.
+
 ### Multiple threads (parallel lanes)
 
 Lanes are safe in parallel: disjoint `FROM/TO` ranges + atomic

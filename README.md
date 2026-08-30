@@ -77,6 +77,16 @@ FROM=user0500listingstudio TO=user0600listingstudio node pipeline.mjs   # range
 node pipeline.mjs 1 user0222listingstudio  # single account (also retries keys)
 ```
 
+### Fast mode — register + site logins only, keys later
+
+```bash
+FAST=1 node pipeline.mjs                   # register GitHub → OAuth BOTH sites → exit
+```
+
+Skips key creation entirely (no `/keys` visits). Sites are marked `registered`
+with 3-round mandatory OAuth — run `backfill-keys.mjs` afterwards to harvest
+keys in a dedicated pass.
+
 Flow per account, one fresh browser each: `/signup` → fill → **Create account**
 → Resend OTP (8-digit launch code) → signed-in/profile-200 proof → site OAuth
 (gorouter, then tabitoken) → create key (group "default") → **route-intercept**

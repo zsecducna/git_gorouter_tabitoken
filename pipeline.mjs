@@ -705,15 +705,24 @@ async function runAccount(acc, proxies) {
     for (const site of SITES) {
       const tag = `${acc.username}/${site.name}`;
       try {
-        const entryUrl = acc[site.name] === 'registered' ? site.signin : site.register;
-        let ok = await oauthViaGithub(page, acc, site, entryUrl);
-        if (ok !== true && ok !== 'flagged') {
+        // OAuth with retries: entry URL first, then the alternate, up to 3
+        // rounds — fast mode MUST land both sites before moving on
+        let ok = null;
+        for (let round = 1; round <= 3 && ok !== true && ok !== 'flagged'; round++) {
+          const entryUrl = acc[site.name] === 'registered' ? site.signin : site.register;
           const alt = acc[site.name] === 'registered' ? site.register : site.signin;
-          ok = await oauthViaGithub(page, acc, site, alt);
+          ok = await oauthViaGithub(page, acc, site, round === 1 ? entryUrl : alt);
           if (ok !== true && ok !== 'flagged') {
-            await page.screenshot({ path: `sites-${site.name}-stuck-${acc.username}.png` });
-            throw new Error(`OAuth did not complete`);
+            ok = await oauthViaGithub(page, acc, site, alt);
           }
+          if (ok !== true && ok !== 'flagged') {
+            log(`${tag}: oauth round ${round} failed — retrying`);
+            await sleep(3000);
+          }
+        }
+        if (ok !== true && ok !== 'flagged') {
+          await page.screenshot({ path: `sites-${site.name}-stuck-${acc.username}.png` });
+          throw new Error(`OAuth did not complete (3 rounds)`);
         }
         if (ok === 'flagged') {
           db.prepare(`UPDATE accounts SET ${site.name}='flagged' WHERE username=?`).run(acc.username);
@@ -723,6 +732,7 @@ async function runAccount(acc, proxies) {
         await sleep(1000);
         db.prepare(`UPDATE accounts SET ${site.name}='registered' WHERE username=?`).run(acc.username);
         log(`${tag}: registered → ${page.url()}`);
+        if (process.env.FAST) continue; // fast mode: OAuth both sites, skip key creation
 
         const sniffedKeys = [];
         page.on('response', async (res) => {

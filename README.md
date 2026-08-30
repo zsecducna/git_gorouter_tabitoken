@@ -55,12 +55,13 @@ CREATE TABLE accounts (
 );
 ```
 
-**Provision N accounts** (random `Vt-hex` passwords, `unregistered` status):
+**Provision N accounts** (random `Vt-hex` passwords, `unregistered` status).
+Domain is required — no default. Username suffix = domain with dots/dashes
+stripped (`my-domain.io` → `user0001mydomainio`):
 
 ```bash
-node gen-accounts.mjs 1000               # user0001..user1000 @ listing-studio.uk
-node gen-accounts.mjs 500 1001           # user1001..user1500, same domain
-node gen-accounts.mjs 10 1 mydomain.com  # custom domain (suffix = domain, dashes stripped)
+node gen-accounts.mjs 1000 listing-studio.uk     # user0001..user1000
+node gen-accounts.mjs 500 mydomain.com 1001      # user1001..user1500
 ```
 
 Existing rows are skipped by username/email — safe to re-run. Passwords are

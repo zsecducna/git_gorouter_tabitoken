@@ -1,12 +1,12 @@
 // gen-accounts.mjs — provision N account rows into accounts.db.
 // Rows are status='unregistered' with random Vt-hex passwords; pipelines pick
-// them up in username order.
+// them up in username order. Username suffix = domain with dots/dashes stripped
+// (my-domain.io → user0001mydomainio).
 //
 // Usage:
-//   node gen-accounts.mjs <N> [startIndex] [domain]
-//   node gen-accounts.mjs 1000            # user0001..user1000 @ listing-studio.uk
-//   node gen-accounts.mjs 500 1001        # user1001..user1500
-//   node gen-accounts.mjs 10 1 mydomain.com
+//   node gen-accounts.mjs <N> <domain> [startIndex]
+//   node gen-accounts.mjs 1000 listing-studio.uk        # user0001..user1000
+//   node gen-accounts.mjs 500 mydomain.com 1001         # user1001..user1500
 import { DatabaseSync } from 'node:sqlite';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -24,18 +24,19 @@ db.exec(`CREATE TABLE IF NOT EXISTS accounts (
 )`);
 
 const N = Number(process.argv[2] ?? 0);
-const start = Number(process.argv[3] ?? 1);
-const domain = process.argv[4] ?? 'listing-studio.uk';
-if (!N || N < 1) {
-  console.error('usage: node gen-accounts.mjs <N> [startIndex] [domain]');
+const domain = process.argv[3];
+const start = Number(process.argv[4] ?? 1);
+if (!N || N < 1 || !domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
+  console.error('usage: node gen-accounts.mjs <N> <domain> [startIndex]');
+  console.error('  e.g. node gen-accounts.mjs 1000 listing-studio.uk');
   process.exit(1);
 }
 
+const suffix = domain.replace(/[.-]/g, '');
 const ins = db.prepare('INSERT INTO accounts (site,email,username,password,region,created,status) VALUES (?,?,?,?,?,?,?)');
 let added = 0, skipped = 0;
 for (let i = start; i < start + N; i++) {
   const username = 'user' + String(i).padStart(4, '0');
-  const suffix = domain.split('.')[0].replace(/-/g, ''); // listing-studio.uk → listingstudio
   const full = username + suffix;
   if (db.prepare('SELECT 1 FROM accounts WHERE username=? OR email=?').get(full, `${username}@${domain}`)) { skipped++; continue; }
   ins.run('github.com', `${username}@${domain}`, full,
@@ -43,5 +44,5 @@ for (let i = start; i < start + N; i++) {
     'Vietnam', new Date().toISOString(), 'unregistered');
   added++;
 }
-console.log(`provisioned ${added} rows (${skipped} existed) — ${db.prepare('SELECT COUNT(*) c FROM accounts').get().c} total${NEW ? ' (db created)' : ''}`);
+console.log(`provisioned ${added} rows @${domain} (${skipped} existed) — ${db.prepare('SELECT COUNT(*) c FROM accounts').get().c} total${NEW ? ' (db created)' : ''}`);
 console.log('next up:', db.prepare("SELECT username FROM accounts WHERE status='unregistered' ORDER BY username LIMIT 1").get()?.username);

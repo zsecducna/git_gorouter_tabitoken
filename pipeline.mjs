@@ -830,8 +830,10 @@ const proxyCooldowns = new Map(); // proxy string → rate-limit cooldown until 
 let done = 0;
 let rateStreak = 0;
 const failed = new Set(); // hard-failed usernames — never re-picked (no infinite loop)
-const fromU = process.env.FROM ?? 'user0001listingstudio';
-const toU = process.env.TO ?? 'user9999listingstudio';
+// default range = EVERYTHING (random usernames like u522afa73c4 sort outside
+// any userNNNNlistingstudio bounds — don't guess, let claims dedupe instead)
+const fromU = process.env.FROM ?? '';
+const toU = process.env.TO ?? '￿';
 
 // race guard: release in-flight rows left by dead instances — ONLY when we are
 // the sole pipeline process (a sweep while siblings run could steal their row)

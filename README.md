@@ -98,8 +98,29 @@ Flow per account, one fresh browser each: `/signup` → fill → **Create accoun
 (gorouter, then tabitoken) → create key (group "default") → **route-intercept**
 the `/api/token/<id>/key` response → save `sk-…` key.
 
-Parallel lanes are safe: disjoint `FROM/TO` ranges + atomic
-`unregistered → in-flight` row claims + WAL mode.
+### Multiple threads (parallel lanes)
+
+Lanes are safe in parallel: disjoint `FROM/TO` ranges + atomic
+`unregistered → in-flight` row claims + WAL mode. Env prefix per lane:
+
+```bash
+# 5 concurrent FAST lanes over disjoint ranges (one browser each, LRU proxies)
+FAST=1 FROM=user0200listingstudio TO=user0400listingstudio nohup node pipeline.mjs >> /tmp/p2.log 2>&1 &
+FAST=1 FROM=user0400listingstudio TO=user0600listingstudio nohup node pipeline.mjs >> /tmp/p3.log 2>&1 &
+FAST=1 FROM=user0600listingstudio TO=user0800listingstudio nohup node pipeline.mjs >> /tmp/p4.log 2>&1 &
+FAST=1 FROM=user0800listingstudio TO=user0900listingstudio nohup node pipeline.mjs >> /tmp/p5.log 2>&1 &
+FAST=1 FROM=user0900listingstudio                     nohup node pipeline.mjs >> /tmp/p6.log 2>&1 &
+```
+
+Same pattern without `FAST=1` for full-pipeline lanes, and with
+`node backfill-keys.mjs` for key-harvest lanes. Rules of thumb:
+
+- one **browser per lane** — CloakBrowser instances are heavyweight
+- ranges **must not overlap** (claims make overlap safe, but lanes would steal
+  each other's queue entries)
+- the last lane may omit `TO` to run to the end (`user9999…` bound)
+- proxies are shared globally: every lane picks the least-recently-used
+  healthy proxy from `proxies.txt` via `proxy-state.json`
 
 ### Backfill — key-only pass for registered accounts
 

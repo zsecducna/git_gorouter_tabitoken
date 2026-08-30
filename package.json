@@ -1,0 +1,18 @@
+{
+  "name": "gorouter-auto",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "cloakbrowser": "^0.5.9",
+    "playwright-core": "^1.62.1",
+    "resend": "^6.24.0"
+  }
+}

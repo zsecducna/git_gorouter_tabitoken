@@ -36,14 +36,20 @@ RESEND_API_KEY=re_xxx
 Overriding a signup URL also re-derives that site's origin and `/sign-in`
 entry automatically.
 
-### Mail / OTP source — auto-dispatched by email domain
+### Mail / OTP source — env-driven
 
-| domain | source |
-|---|---|
-| `@duke-kr.win` | IMAP catch-all (`mail-otp.mjs`; needs `MAIL_PASS` in `.env`) |
-| anything else | Resend inbound API (`RESEND_API_KEY`) |
+Priority (checked per account):
 
-Provision new batches on the free domain:
+1. `RESEND_API_KEY` in `.env` → Resend inbound API
+2. else `MAIL_PASS` (+ optional `MAIL_USER`, default `me@duke-kr.win` catch-all)
+   → your IMAP mail server (`mail-otp.mjs`, IDLE push)
+3. neither → scripts exit at boot: `FATAL: no OTP source`
+
+`@duke-kr.win` addresses ALWAYS use IMAP (Resend never sees that domain) —
+with only `RESEND_API_KEY` configured, duke-kr batches fail fast with a clear
+error instead of stalling.
+
+Provision batches on the free domain:
 
 ```bash
 node gen-accounts.mjs 1000 duke-kr.win   # userNNNN@duke-kr.win, OTPs via IMAP

@@ -18,6 +18,10 @@ const env = Object.fromEntries(
 
 const MAIL_DOMAIN = 'duke-kr.win';
 
+// hasMailCreds — IMAP available? (MAIL_PASS required; MAIL_USER optional,
+// defaults to the catch-all mailbox me@duke-kr.win)
+export const hasMailCreds = () => Boolean(env.MAIL_PASS);
+
 // isFarmEmail — dispatcher helper: which OTP source owns this address?
 export const isFarmEmail = (email) => (email ?? '').endsWith('@' + MAIL_DOMAIN);
 
@@ -39,7 +43,7 @@ const newClient = () => new ImapFlow({
   host: process.env.MAIL_HOST ?? 'mail.duke-kr.win',
   port: Number(process.env.MAIL_PORT ?? 993),
   secure: true,
-  auth: { user: 'me@' + MAIL_DOMAIN, pass: env.MAIL_PASS },
+  auth: { user: env.MAIL_USER ?? 'me@' + MAIL_DOMAIN, pass: env.MAIL_PASS },
   logger: false,
 });
 

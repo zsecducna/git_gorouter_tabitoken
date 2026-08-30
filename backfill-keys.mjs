@@ -8,7 +8,7 @@
 //
 // Usage: node pipeline.mjs [count]   (default: loop until no unregistered left)
 import { launch } from 'cloakbrowser';
-import { isFarmEmail, imapLatestEmailTime, imapPollOtp } from './mail-otp.mjs';
+import { isFarmEmail, hasMailCreds, imapLatestEmailTime, imapPollOtp } from './mail-otp.mjs';
 import { execSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
@@ -41,6 +41,25 @@ const SITES = [
   siteFromEnv('gorouter', 'https://gorouter.app/sign-up?aff=Jju8'),
   siteFromEnv('tabitoken', 'https://tabitoken.com/sign-up?aff=fPbO'),
 ];
+
+
+// OTP SOURCE SELECTION (per spec):
+//   1. RESEND_API_KEY in .env  → Resend inbound API
+//   2. else MAIL_PASS (+optional MAIL_USER) → IMAP mail server
+//   3. neither → exit.
+// duke-kr.win addresses always go IMAP (Resend never sees that domain);
+// if only Resend is configured, duke-kr batches abort with a clear error.
+function otpSourceFor(email) {
+  const hasResend = Boolean(loadEnv().RESEND_API_KEY);
+  const hasImap = hasMailCreds();
+  if (isFarmEmail(email)) {
+    if (hasImap) return 'imap';
+    throw new Error('duke-kr.win account but no MAIL_PASS in .env — add IMAP creds or use a Resend domain');
+  }
+  if (hasResend) return 'resend';
+  if (hasImap) return 'imap';
+  throw new Error('no OTP source: set RESEND_API_KEY or MAIL_PASS/MAIL_USER in .env');
+}
 
 // log — timestamped progress line
 function log(msg) {
@@ -97,7 +116,7 @@ function pickAccount(only) {
 
 // latestEmailTime — newest GitHub email for `to` (baseline for freshness)
 async function latestEmailTime(to) {
-  if (isFarmEmail(to)) return imapLatestEmailTime(to); // duke-kr.win IMAP
+  if (otpSourceFor(to) === 'imap') return imapLatestEmailTime(to);
   const H = { Authorization: `Bearer ${loadEnv().RESEND_API_KEY}` };
   const r = await fetch('https://api.resend.com/emails/receiving', { headers: H });
   if (!r.ok) return new Date(0);
@@ -110,7 +129,7 @@ async function latestEmailTime(to) {
 // GitHub often re-issues the SAME code across attempts — anything newer than
 // the pre-submit baseline is valid, even if sent minutes ago.
 async function pollOtp(to, since) {
-  if (isFarmEmail(to)) return imapPollOtp(to, since, 8);
+  if (otpSourceFor(to) === 'imap') return imapPollOtp(to, since, 8);
   const H = { Authorization: `Bearer ${loadEnv().RESEND_API_KEY}` };
   const deadline = Date.now() + 240_000;
   await sleep(5000);
@@ -289,7 +308,7 @@ async function registerGithub(page, acc, baseline) {
 
 // pollDeviceOtp — 6-digit GitHub device-verification code from Resend
 async function pollDeviceOtp(to, since) {
-  if (isFarmEmail(to)) return imapPollOtp(to, since, 6);
+  if (otpSourceFor(to) === 'imap') return imapPollOtp(to, since, 6);
   const H = { Authorization: `Bearer ${loadEnv().RESEND_API_KEY}` };
   const deadline = Date.now() + 240_000;
   await sleep(5000);
@@ -695,6 +714,11 @@ async function runAccount(acc, proxies) {
 // main — backfill mode: for each registered account missing a site key, login
 // and complete just the site(s) missing keys. Named account optional.
 loadEnv();
+// hard requirement: at least one OTP source must exist
+if (!loadEnv().RESEND_API_KEY && !hasMailCreds()) {
+  console.error('FATAL: no OTP source — set RESEND_API_KEY or MAIL_PASS (MAIL_USER) in .env');
+  process.exit(1);
+}
 const proxies = loadProxies();
 const only = process.argv[2] ?? null;
 

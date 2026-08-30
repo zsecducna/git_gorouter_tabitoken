@@ -870,7 +870,7 @@ while (done < maxCount) {
     // network-flavored failure = proxy health problem, not the account's fault:
     // cool that proxy and retry the SAME account on a fresh one
     if (/net::ERR_|Timeout 30000ms exceeded|ERR_CERT|ERR_TUNNEL|ERR_CONNECTION|ERR_ABORTED/i.test(msg)) {
-      if (acc.__proxy) proxyCooldowns.set(acc.__proxy, Date.now() + 600_000);
+      if (acc.__proxy) proxyCooldowns.set(acc.__proxy, Date.now() + 200_000); // 200s — proxy rotates IP every 240s anyway
       db.prepare("UPDATE accounts SET status='unregistered' WHERE username=? AND status='in-flight'").run(acc.username);
       queue.unshift(acc.username);
       failed.delete(acc.username);

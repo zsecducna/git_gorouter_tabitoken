@@ -45,7 +45,7 @@ http://user:pass@host:port           # URL style
 
 `#` lines are comments. LRU rotation is global and shared by every process via
 `proxy-state.json` (auto-generated) — the longest-idle eligible proxy is picked
-next; proxies that hit network errors get a 10-minute cooldown.
+next; proxies that hit network errors get a 200 s cooldown (proxy IPs rotate every 240 s anyway).
 
 ### `accounts.db` — SQLite, source of truth (never committed)
 

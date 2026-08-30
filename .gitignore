@@ -6,3 +6,6 @@ proxy-state.json
 otp.txt
 *.png
 steps.jsonl
+proxies.txt
+signup-capture.jsonl
+*.log

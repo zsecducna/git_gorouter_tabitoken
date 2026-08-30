@@ -147,12 +147,18 @@ $env:FAST="1"
 1..6 | ForEach-Object { Start-Job -Name "lane$_" -ScriptBlock {
   param($n) Set-Location $using:PWD; node pipeline.mjs *> "p$n.log" } -ArgumentList $_ }
 Get-Job                                  # lane status
-Stop-Job lane*; Remove-Job lane*         # stop all
 ```
 
 Windows notes: the macOS window-hide calls no-op silently (browsers stay
 visible — slide DataDome challenges as they appear); everything else
 (LRU proxies, claims, WAL, IMAP IDLE) is platform-neutral.
+
+Stopping the fleet:
+
+```powershell
+Stop-Job lane*; Remove-Job lane*   # graceful stop of all lanes
+# any in-flight rows are swept back to 'unregistered' on the next boot
+```
 
 ### Multiple threads (parallel lanes)
 

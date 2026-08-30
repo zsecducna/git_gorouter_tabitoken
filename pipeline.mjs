@@ -20,9 +20,28 @@ db.exec('PRAGMA busy_timeout=10000'); // concurrent writers wait instead of fail
 db.exec('PRAGMA journal_mode=WAL'); // readers never block writers — multi-instance safe
 
 // SITES — the two targets
+// env helper before SITES (loadEnv is defined below; hoist-safe const call)
+function envOf() {
+  try {
+    return Object.fromEntries(
+      fs.readFileSync(fileURLToPath(new URL('./.env', import.meta.url)), 'utf8')
+        .split('\n').filter((l) => l.includes('=') && !l.startsWith('#'))
+        .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).trim()])
+    );
+  } catch { return {}; }
+}
+const ENV0 = envOf();
+
+// site registration links configurable via .env (GOROUTER_SIGNUP_URL /
+// TABITOKEN_SIGNUP_URL, incl. your aff codes); origin/signin derived
+function siteFromEnv(name, defaultRegister) {
+  const register = ENV0[(name + '_signup_url').toUpperCase()] ?? defaultRegister;
+  const origin = new URL(register).origin;
+  return { name, register, signin: origin + '/sign-in', origin, keyPage: '/keys', keyStyle: 'newapi' };
+}
 const SITES = [
-  { name: 'gorouter', register: 'https://gorouter.app/sign-up?aff=Jju8', signin: 'https://gorouter.app/sign-in', origin: 'https://gorouter.app', keyPage: '/keys', keyStyle: 'newapi' },
-  { name: 'tabitoken', register: 'https://tabitoken.com/sign-up?aff=fPbO', signin: 'https://tabitoken.com/sign-in', origin: 'https://tabitoken.com', keyPage: '/keys', keyStyle: 'newapi' }, // revived 2026-08-30
+  siteFromEnv('gorouter', 'https://gorouter.app/sign-up?aff=Jju8'),
+  siteFromEnv('tabitoken', 'https://tabitoken.com/sign-up?aff=fPbO'),
 ];
 
 // log — timestamped progress line

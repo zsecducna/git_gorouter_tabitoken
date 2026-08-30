@@ -28,7 +28,13 @@ npm install cloakbrowser playwright-core   # first run downloads ~200MB Chromium
 
 ```
 RESEND_API_KEY=re_xxx
+# optional — site registration links incl. your referral codes (defaults shown)
+# GOROUTER_SIGNUP_URL=https://gorouter.app/sign-up?aff=Jju8
+# TABITOKEN_SIGNUP_URL=https://tabitoken.com/sign-up?aff=fPbO
 ```
+
+Overriding a signup URL also re-derives that site's origin and `/sign-in`
+entry automatically.
 
 ### `proxies.txt` — one proxy per line, two accepted formats
 

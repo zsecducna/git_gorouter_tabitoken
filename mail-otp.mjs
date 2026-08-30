@@ -61,15 +61,53 @@ export async function imapLatestEmailTime(email) {
   } catch { return new Date(0); }
 }
 
-// imapPollOtp — newest GitHub mail to `email` newer than `since`; digits = 6|8
+// imapPollOtp — newest GitHub mail to `email` newer than `since`; digits = 6|8.
+// Persistent IMAP connection across poll rounds (one TLS+login, then cheap
+// NOOP+fetch every 3 s) — comparable latency to the Resend HTTP poll.
 export async function imapPollOtp(email, since, digits = 8) {
   const re = new RegExp(`\\b(\\d{${digits}})\\b`);
   const anchored = digits === 8
     ? /entering the code below:?\s*(\d{8})/i
     : /\b(\d{6})\b/;
-  for (let round = 0; round < 24; round++) {
+
+  let client = null;
+  const connect = async () => {
+    client = new ImapFlow({
+      host: process.env.MAIL_HOST ?? 'mail.duke-kr.win',
+      port: Number(process.env.MAIL_PORT ?? 993),
+      secure: true,
+      auth: { user: 'me@' + MAIL_DOMAIN, pass: env.MAIL_PASS },
+      logger: false,
+    });
+    await client.connect();
+    return client.getMailboxLock('INBOX');
+  };
+
+  let lock = null;
+  try {
+    lock = await connect();
+  } catch {
+    // fall back to per-round mode below
+  }
+
+  for (let round = 0; round < 40; round++) {
     try {
-      const msgs = await fetchRecent(40);
+      let msgs = [];
+      if (lock && client?.usable) {
+        const total = client.mailbox.exists;
+        const from = Math.max(1, total - 30 + 1);
+        for await (const msg of client.fetch(`${from}:${total}`, { source: true })) {
+          const mail = await simpleParser(msg.source);
+          msgs.push({
+            to: (mail.to?.text ?? '').trim(),
+            from: (mail.from?.text ?? '').trim(),
+            date: mail.date ?? new Date(0),
+            text: mail.text ?? String(mail.html ?? '').replace(/<[^>]+>/g, ' '),
+          });
+        }
+      } else {
+        msgs = await fetchRecent(30);
+      }
       const hit = [...msgs].reverse().find(
         (m) => m.to.includes(email) && /github/i.test(m.from) && new Date(m.date) > since
       );
@@ -80,9 +118,14 @@ export async function imapPollOtp(email, since, digits = 8) {
       }
     } catch (e) {
       if (/no \d+-digit/.test(e.message)) throw e;
-      // transient IMAP error — retry next round
+      // broken connection — rebuild once next round
+      try { lock?.release(); } catch {}
+      try { await client?.logout(); } catch {}
+      try { lock = await connect(); } catch { lock = null; }
     }
-    await new Promise((r) => setTimeout(r, 5_000));
+    await new Promise((r) => setTimeout(r, 3_000));
   }
+  try { lock?.release(); } catch {}
+  try { await client?.logout(); } catch {}
   throw new Error('OTP not received via IMAP within 2 minutes');
 }

@@ -41,9 +41,9 @@ http://user:pass@host:port           # URL style
 `proxy-state.json` (auto-generated) — the longest-idle eligible proxy is picked
 next; proxies that hit network errors get a 10-minute cooldown.
 
-### `accounts.db` — SQLite, source of truth
+### `accounts.db` — SQLite, source of truth (never committed)
 
-Schema (one row per account, created upfront or ad-hoc):
+Created automatically on first provisioning. One row per account:
 
 ```sql
 CREATE TABLE accounts (
@@ -55,16 +55,16 @@ CREATE TABLE accounts (
 );
 ```
 
-Generate rows (example: user0001–user1000 on your domain):
+**Provision N accounts** (random `Vt-hex` passwords, `unregistered` status):
 
-```js
-// node gen.mjs — or any sqlite client
-INSERT INTO accounts (site,email,username,password,region,created,status)
-VALUES ('github.com','user0001@example.com','user0001',
-        'Vt-<random-hex>-9x!K','Vietnam',<now>,'unregistered');
+```bash
+node gen-accounts.mjs 1000               # user0001..user1000 @ listing-studio.uk
+node gen-accounts.mjs 500 1001           # user1001..user1500, same domain
+node gen-accounts.mjs 10 1 mydomain.com  # custom domain (suffix = domain, dashes stripped)
 ```
 
-Passwords are stored in **plaintext** by design (this is a creds vault).
+Existing rows are skipped by username/email — safe to re-run. Passwords are
+stored in **plaintext** by design (this is a creds vault).
 
 ## Run
 

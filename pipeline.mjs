@@ -794,7 +794,11 @@ async function runAccount(acc, proxies) {
         const apiKey = await newApiKeyFlow(page, acc, site, sniffedKeys);
         // dupe guard: a key already owned by ANOTHER row means cross-capture —
         // reject and fail loudly so the account retries with fresh capture
-        const dupe = db.prepare(`SELECT username FROM accounts WHERE ${site.name}_api_key=? AND username!=?`).get(apiKey, acc.username);
+        // dupe guard — same-site AND cross-site (a gorouter key must never be
+        // stored as a tabitoken key or vice versa; both columns checked)
+        const dupe = db.prepare(
+          `SELECT username FROM accounts WHERE (gorouter_api_key=? OR tabitoken_api_key=?) AND username!=?`
+        ).get(apiKey, apiKey, acc.username);
         if (dupe) throw new Error(`key collision with ${dupe.username} — capture rejected`);
         db.prepare(`UPDATE accounts SET ${site.name}='registered', ${site.name}_api_key=? WHERE username=?`).run(apiKey, acc.username);
         log(`${tag}: API KEY SAVED`);

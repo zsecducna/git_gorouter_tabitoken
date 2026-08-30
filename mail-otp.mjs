@@ -16,7 +16,7 @@ const env = Object.fromEntries(
     .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).trim()])
 );
 
-const MAIL_DOMAIN = 'duke-kr.win';
+const MAIL_DOMAIN = process.env.MAIL_DOMAIN ?? env.MAIL_DOMAIN ?? 'duke-kr.win'; // override for other catch-all domains
 
 // hasMailCreds — IMAP available? (MAIL_PASS required; MAIL_USER optional,
 // defaults to the catch-all mailbox me@duke-kr.win)

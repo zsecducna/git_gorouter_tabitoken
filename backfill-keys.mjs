@@ -8,6 +8,7 @@
 //
 // Usage: node pipeline.mjs [count]   (default: loop until no unregistered left)
 import { launch } from 'cloakbrowser';
+import { isFarmEmail, imapLatestEmailTime, imapPollOtp } from './mail-otp.mjs';
 import { execSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
@@ -96,6 +97,7 @@ function pickAccount(only) {
 
 // latestEmailTime — newest GitHub email for `to` (baseline for freshness)
 async function latestEmailTime(to) {
+  if (isFarmEmail(to)) return imapLatestEmailTime(to); // duke-kr.win IMAP
   const H = { Authorization: `Bearer ${loadEnv().RESEND_API_KEY}` };
   const r = await fetch('https://api.resend.com/emails/receiving', { headers: H });
   if (!r.ok) return new Date(0);
@@ -108,6 +110,7 @@ async function latestEmailTime(to) {
 // GitHub often re-issues the SAME code across attempts — anything newer than
 // the pre-submit baseline is valid, even if sent minutes ago.
 async function pollOtp(to, since) {
+  if (isFarmEmail(to)) return imapPollOtp(to, since, 8);
   const H = { Authorization: `Bearer ${loadEnv().RESEND_API_KEY}` };
   const deadline = Date.now() + 240_000;
   await sleep(5000);
@@ -286,6 +289,7 @@ async function registerGithub(page, acc, baseline) {
 
 // pollDeviceOtp — 6-digit GitHub device-verification code from Resend
 async function pollDeviceOtp(to, since) {
+  if (isFarmEmail(to)) return imapPollOtp(to, since, 6);
   const H = { Authorization: `Bearer ${loadEnv().RESEND_API_KEY}` };
   const deadline = Date.now() + 240_000;
   await sleep(5000);

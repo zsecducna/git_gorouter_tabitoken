@@ -36,6 +36,19 @@ RESEND_API_KEY=re_xxx
 Overriding a signup URL also re-derives that site's origin and `/sign-in`
 entry automatically.
 
+### Mail / OTP source — auto-dispatched by email domain
+
+| domain | source |
+|---|---|
+| `@duke-kr.win` | IMAP catch-all (`mail-otp.mjs`; needs `MAIL_PASS` in `.env`) |
+| anything else | Resend inbound API (`RESEND_API_KEY`) |
+
+Provision new batches on the free domain:
+
+```bash
+node gen-accounts.mjs 1000 duke-kr.win   # userNNNN@duke-kr.win, OTPs via IMAP
+```
+
 ### `proxies.txt` — one proxy per line, two accepted formats
 
 ```

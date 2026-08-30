@@ -137,8 +137,12 @@ Same pattern without `FAST=1` for full-pipeline lanes, and with
 `node backfill-keys.mjs` for key-harvest lanes. Rules of thumb:
 
 - one **browser per lane** — CloakBrowser instances are heavyweight
-- ranges **must not overlap** (claims make overlap safe, but lanes would steal
-  each other's queue entries)
+- **sequential batches** (`userNNNN…`): shard with disjoint `FROM`/`TO` ranges —
+  avoids lanes stealing each other's queue entries
+- **random batches** (`--random`): omit `FROM`/`TO` entirely — every lane works
+  the same queue and the atomic `unregistered → in-flight` claim arbitrates
+  (`claimed elsewhere — skip`). A collision costs one no-op UPDATE, so no
+  coordination is needed
 - the last lane may omit `TO` to run to the end (`user9999…` bound)
 - proxies are shared globally: every lane picks the least-recently-used
   healthy proxy from `proxies.txt` via `proxy-state.json`

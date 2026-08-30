@@ -89,7 +89,9 @@ node gen-accounts.mjs 1000 listing-studio.uk     # user0001..user1000
 node gen-accounts.mjs 500 mydomain.com 1001      # user1001..user1500
 ```
 
-Existing rows are skipped by username/email — safe to re-run. Passwords are
+Existing rows are skipped by username/email — safe to re-run. The `next up`
+hint is scoped to the batch's domain (global next-up would point at an older
+unfinished batch). Passwords are
 stored in **plaintext** by design (this is a creds vault).
 
 ## Run

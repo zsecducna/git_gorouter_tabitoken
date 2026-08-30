@@ -45,4 +45,4 @@ for (let i = start; i < start + N; i++) {
   added++;
 }
 console.log(`provisioned ${added} rows @${domain} (${skipped} existed) — ${db.prepare('SELECT COUNT(*) c FROM accounts').get().c} total${NEW ? ' (db created)' : ''}`);
-console.log('next up:', db.prepare("SELECT username FROM accounts WHERE status='unregistered' ORDER BY username LIMIT 1").get()?.username);
+console.log('next up (this batch):', db.prepare("SELECT username FROM accounts WHERE status='unregistered' AND email LIKE ? ORDER BY username LIMIT 1").get(`%@${domain}`)?.username);

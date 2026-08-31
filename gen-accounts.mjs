@@ -35,7 +35,7 @@ if (!N || N < 1 || !domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
 const RANDOM = process.argv.includes('--random');
 const randName = () => 'u' + crypto.randomBytes(5).toString('hex'); // u+10 hex
 
-const suffix = domain.replace(/[.-]/g, '');
+const suffix = domain.split('.')[0].replace(/[.-]/g, ''); // first label only: listing-studio.uk → listingstudio
 const ins = db.prepare('INSERT INTO accounts (site,email,username,password,region,created,status) VALUES (?,?,?,?,?,?,?)');
 let added = 0, skipped = 0;
 for (let i = start; i < start + N; i++) {

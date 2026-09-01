@@ -254,3 +254,20 @@ export function recordGrant(db, username, taskId, reward, day = new Date().toISO
   db.prepare('INSERT INTO credit_grants (username, task_id, day, reward) VALUES (?,?,?,?)')
     .run(username, taskId, day, reward);
 }
+
+/**
+ * Stock-sync marker: when the account's txt landed on the shop server
+ * (`CapCut FREE - 1540 AI Credits/active/<email>.txt`). Idempotent column;
+ * NULL = not yet stocked.
+ */
+export function ensureStockedColumn(db) {
+  const cols = db.prepare('PRAGMA table_info(accounts)').all().map((c) => c.name);
+  if (!cols.includes('stocked_at')) {
+    db.exec('ALTER TABLE accounts ADD COLUMN stocked_at TEXT');
+  }
+}
+
+// Mark one row as stocked (timestamped now).
+export function markStocked(db, username) {
+  db.prepare('UPDATE accounts SET stocked_at=? WHERE username=?').run(new Date().toISOString(), username);
+}

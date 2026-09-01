@@ -12,7 +12,8 @@
     "provision": "node bin/provision.js",
     "netlog": "node bin/netlog.js",
     "make": "node bin/make-account.js",
-    "claim": "node bin/claim.js"
+    "claim": "node bin/claim.js",
+    "stock": "node bin/stock.js"
   },
   "dependencies": {
     "imapflow": "^1.7.6",

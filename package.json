@@ -13,7 +13,9 @@
   "dependencies": {
     "cloakbrowser": "^0.5.9",
     "imapflow": "^1.7.6",
+    "jsqr": "^1.4.0",
     "mailparser": "^3.9.17",
+    "pngjs": "^7.0.0",
     "playwright-core": "^1.62.1",
     "resend": "^6.24.0"
   }

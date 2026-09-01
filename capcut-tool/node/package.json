@@ -1,0 +1,22 @@
+{
+  "name": "capcut-tool-node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CapCut bulk account signup \u2014 Node.js port of capcut-tool (Python). Step 1: signup flow.",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "signup": "node bin/signup.js",
+    "provision": "node bin/provision.js",
+    "netlog": "node bin/netlog.js",
+    "make": "node bin/make-account.js",
+    "claim": "node bin/claim.js"
+  },
+  "dependencies": {
+    "imapflow": "^1.7.6",
+    "mailparser": "^3.9.17",
+    "playwright-core": "^1.62.1"
+  }
+}

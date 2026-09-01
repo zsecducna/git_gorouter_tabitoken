@@ -1,0 +1,10 @@
+config.js
+capcut_accounts.txt
+capcut_pro.txt
+capcut_free.txt
+netlog-*.jsonl
+netlog/
+*.log
+qr-*.png
+node_modules/
+data/

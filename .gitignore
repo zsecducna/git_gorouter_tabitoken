@@ -9,3 +9,8 @@ steps.jsonl
 proxies.txt
 signup-capture.jsonl
 *.log
+
+# key exports — NEVER commit (incident 2026-09-01)
+gorouter-keys.txt
+tabitoken-keys.txt
+*-keys.txt

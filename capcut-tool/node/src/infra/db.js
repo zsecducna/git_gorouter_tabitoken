@@ -165,11 +165,12 @@ export function setCapcutEmail(db, username, email) {
  * count toward total.
  */
 export function capcutStats(db) {
-  const stats = { total: 0, unregistered: 0, inFlight: 0, registered: 0, poisoned: 0 };
+  const stats = { total: 0, unregistered: 0, inFlight: 0, pending: 0, registered: 0, poisoned: 0 };
   for (const { status, c } of db.prepare("SELECT status, COUNT(*) AS c FROM accounts WHERE site='capcut.com' GROUP BY status").all()) {
     stats.total += c;
     if (status === 'unregistered') stats.unregistered = c;
     else if (status === 'in-flight') stats.inFlight = c;
+    else if (status === 'pending') stats.pending = c;
     else if (status === 'registered') stats.registered = c;
     else if (status === 'poisoned') stats.poisoned = c;
   }

@@ -10,7 +10,7 @@
 // stays the fast path, this is the reconciliation pass.
 
 import { loadEnv } from '../src/util/util.js';
-import { openAccountsDb, capcutStats, updateCapcutCredits } from '../src/infra/db.js';
+import { openAccountsDb, capcutStats, updateCapcutCredits, markCapcutRegistered } from '../src/infra/db.js';
 import { openBrowser, closeBrowser } from '../src/browser/browser.js';
 import { login } from '../src/core/capcut-login.js';
 import { warmUp } from '../src/core/capcut-api.js';
@@ -32,8 +32,8 @@ const one = oneIdx !== -1 ? args[oneIdx + 1] : null;
 
 const db = openAccountsDb('');
 const rows = one
-  ? db.prepare("SELECT username,email,password,capcut_credits FROM accounts WHERE site='capcut.com' AND username=? AND status='registered'").all(one)
-  : db.prepare("SELECT username,email,password,capcut_credits FROM accounts WHERE site='capcut.com' AND status='registered' ORDER BY created").all();
+  ? db.prepare("SELECT username,email,password,capcut_credits,status FROM accounts WHERE site='capcut.com' AND username=? AND status IN ('registered','pending')").all(one)
+  : db.prepare("SELECT username,email,password,capcut_credits,status FROM accounts WHERE site='capcut.com' AND status IN ('registered','pending') ORDER BY created").all();
 if (!rows.length) { log('no registered accounts'); db.close(); process.exit(one ? 2 : 0); }
 log(`verifying ${rows.length} account(s) against the server ledger ...`);
 
@@ -57,7 +57,11 @@ try {
     if (total === null) { results.push({ ...r, actual: null }); continue; }
     const known = r.capcut_credits ?? 0;
     const drift = total - known;
-    updateCapcutCredits(db, r.username, total, null);
+    if (r.status === 'pending') {
+      markCapcutRegistered(db, r.username, { credits: total, plan: 'free' }); // first truth read completes the row
+    } else {
+      updateCapcutCredits(db, r.username, total, null);
+    }
     results.push({ ...r, actual: total, drift });
     log(`  ${r.username.padEnd(14)} ${r.email.padEnd(34)} ledger=${String(known).padStart(5)} actual=${String(total).padStart(5)} ${drift ? `Δ${drift > 0 ? '+' : ''}${drift}` : '✓'}`);
   }

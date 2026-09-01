@@ -14,3 +14,9 @@ signup-capture.jsonl
 gorouter-keys.txt
 tabitoken-keys.txt
 *-keys.txt
+
+# runtime artifacts (restructure phase 1)
+nohup.out
+cmd.json
+last-result.json
+data/

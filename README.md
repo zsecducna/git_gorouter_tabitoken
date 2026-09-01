@@ -213,3 +213,7 @@ node verify-poisoned.mjs  # 'poisoned' rows whose profile appeared → registere
   slider on `/signup` does gate registration and is human-only by design.
 - Headless breaks gorouter OAuth — stay headful (windows are auto-hidden).
 - Country dropdown auto-detects from proxy IP; don't touch it.
+
+## Repo structure
+
+See [RESTRUCTURE-PROPOSAL.md](RESTRUCTURE-PROPOSAL.md) — phased plan aligning the root with the `capcut-tool/node` layout (phase 1 hygiene applied 2026-09-01; moves wait for lane drain). Config templates: [config/env.example](config/env.example), [config/proxies.example.txt](config/proxies.example.txt).

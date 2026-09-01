@@ -1,0 +1,8 @@
+# proxies.example.txt — documented template for the repo-root proxies.txt
+# (real proxies.txt is gitignored; credentials inside — NEVER commit it).
+# One proxy per line, two accepted formats:
+
+host:port:username:password          # zingproxy style
+http://user:pass@host:port           # URL style
+
+# Lanes pick a healthy proxy per browser via proxy-state.json (LRU + cooldown).

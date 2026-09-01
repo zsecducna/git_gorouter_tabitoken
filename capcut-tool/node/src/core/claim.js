@@ -68,12 +68,14 @@ async function post(cookie, url, payload) {
 // Claim everything claimable for one account. `db` (optional) collects the
 // cookie jar between calls; revisit is internal. Returns
 // { uid, tasks, done, sharkBlocked, credit, total }.
-export async function claimAll(email, password, {
+// Claim with an EXISTING session (e.g. the register_verify_login response's
+// cookies) — avoids a second login, which matters on shared proxy exits:
+// the passport login endpoint rate-limits per IP ("too frequent") and the
+// redundant call killed an otherwise-complete account (measured 2026-09-02).
+export async function claimWithSession(uid, cookie, {
   log = () => {}, rounds = 1, gapSeconds = 45,
   grantedToday = null, recordGrant = null, concurrency = 5,
 } = {}) {
-  const { uid, cookie } = await nodeLogin(email, password);
-  log(`logged in user_id=${uid}`);
 
   // Initialize the commerce session (same trick as the browser's app visit —
   // user_credit serves a decoy 0 envelope until /my-edit has been hit once).
@@ -164,4 +166,12 @@ export async function claimAll(email, password, {
   // Sum of NEW grants this pass (ledger already holds the history).
   log(`claimed-sum: ${grantSum}`);
   return { uid, tasks, done, sharkBlocked, credit: {}, total: grantSum };
+}
+
+
+// Login + claim (the standalone daily-harvest entry point).
+export async function claimAll(email, password, opts = {}) {
+  const { uid, cookie } = await nodeLogin(email, password);
+  (opts.log || (() => {}))(`logged in user_id=${uid}`);
+  return claimWithSession(uid, cookie, opts);
 }

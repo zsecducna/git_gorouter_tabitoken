@@ -11,7 +11,7 @@
 // wait OTP (okotp) → register_verify_login (creates the account + session) →
 // claimAll for the 11 tasks. ~20 API calls + the OTP delivery wait.
 
-import { xorHex, nodeLogin, claimAll } from './claim.js';
+import { xorHex, nodeLogin, claimWithSession } from './claim.js';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36';
 const QS = 'aid=348188&account_sdk_source=web&sdk_version=2.1.10-tiktok&language=vi';
@@ -109,8 +109,8 @@ export async function signupAndClaim(email, password, mailbox, {
   if (reg.error) { log(`[!] register failed: ${reg.error}`); return null; }
   log(`    created user_id=${reg.uid}`);
 
-  // Claim with a fresh login session (register's session also works, but the
-  // re-login keeps one code path with claim.js and costs one round-trip).
-  const res = await claimAll(email, password, { log: (m) => log('    ' + m), grantedToday, recordGrant });
+  // Claim on the REGISTER session — no second login (shared proxy exits
+  // rate-limit the login endpoint per IP).
+  const res = await claimWithSession(reg.uid, reg.cookie, { log: (m) => log('    ' + m), grantedToday, recordGrant });
   return res;
 }

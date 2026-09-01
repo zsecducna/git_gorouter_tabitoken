@@ -30,8 +30,8 @@ ensureCreditGrants(db);
 const stats = capcutStats(db);
 log(`capcut.com queue: ${stats.registered} registered / ${stats.unregistered} unregistered / ${stats.poisoned} poisoned`);
 const rows = one
-  ? db.prepare("SELECT username,email,password FROM accounts WHERE site='capcut.com' AND username=? AND status='registered'").all(one)
-  : db.prepare("SELECT username,email,password FROM accounts WHERE site='capcut.com' AND status='registered' ORDER BY created").all();
+  ? db.prepare("SELECT username,email,password FROM accounts WHERE site='capcut.com' AND username=? AND status IN ('registered','pending')").all(one)
+  : db.prepare("SELECT username,email,password FROM accounts WHERE site='capcut.com' AND status IN ('registered','pending') ORDER BY created").all();
 if (!rows.length) {
   log(one ? `no registered account '${one}'` : 'no registered accounts — provision + signup first');
   db.close();
@@ -65,7 +65,7 @@ for (const r of rows) {
 }
 
 // Regenerate the export files from the (now updated) DB.
-const all = db.prepare("SELECT email,password,capcut_credits,capcut,created FROM accounts WHERE site='capcut.com' AND status='registered' ORDER BY created").all();
+const all = db.prepare("SELECT email,password,capcut_credits,capcut,created FROM accounts WHERE site='capcut.com' AND status IN ('registered','pending') ORDER BY created").all();
 db.close();
 const line = (r) => `${r.email}|${r.password}|${r.capcut_credits ?? 0}|${r.capcut === 'pro' ? 'pro' : 'free'}|${(r.created || '').slice(0, 16)}`;
 const dataDir = path.join(PKG_ROOT, 'data');

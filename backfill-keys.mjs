@@ -733,6 +733,14 @@ const targets = only
   : db.prepare(`SELECT * FROM accounts WHERE status='registered' AND (gorouter_api_key IS NULL OR tabitoken_api_key IS NULL) AND gorouter != 'flagged' AND tabitoken != 'flagged' ${fB ? 'AND username>=?' : ''} ${tB ? 'AND username<?' : ''} ORDER BY username`).all(...(fB ? [fB] : []), ...(tB ? [tB] : []));
 log(`backfill: ${targets.length} accounts with missing keys`);
 
+// per-account claim — prevents concurrent threads double-logging-in the same
+// account (GitHub issues a DIFFERENT device code per session; mixed codes
+// invalidate each other). Stale claims (>10 min) auto-release.
+db.exec('CREATE TABLE IF NOT EXISTS bf_claims (username TEXT PRIMARY KEY, ts INTEGER)');
+db.prepare('DELETE FROM bf_claims WHERE ts < ?').run(Date.now() - 600_000);
+const claim = (u) => db.prepare('INSERT OR IGNORE INTO bf_claims (username, ts) VALUES (?, ?)').run(u, Date.now()).changes === 1;
+const release = (u) => db.prepare('DELETE FROM bf_claims WHERE username = ?').run(u);
+
 for (const acc of targets) {
   // fresh row each iteration (skip if another instance filled it meanwhile)
   const fresh = db.prepare('SELECT * FROM accounts WHERE username=?').get(acc.username);
@@ -740,6 +748,7 @@ for (const acc of targets) {
     log(`${acc.username}: keys complete — skip`);
     continue;
   }
+  if (!claim(acc.username)) { continue; } // another thread owns this account
   // least-recently-used pick — global across all processes via proxy-state.json
   const state = (() => { try { return JSON.parse(fs.readFileSync(fileURLToPath(new URL('./proxy-state.json', import.meta.url)), 'utf8')); } catch { return {}; } })();
   const oldest = proxies.length ? Math.min(...proxies.map((p) => state[p] ?? 0)) : 0;
@@ -819,6 +828,7 @@ for (const acc of targets) {
   } catch (e) {
     log(`${acc.username}: BACKFILL FAILED — ${e.message.split('\n')[0]}`);
   } finally {
+    release(acc.username);
     await browser.close().catch(() => {});
   }
   await sleep(5000);

@@ -229,3 +229,27 @@ export function listCapcutUpgradeTargets(db, { username = null } = {}) {
       "AND (capcut IS NULL OR capcut='' OR capcut='free' OR capcut NOT LIKE 'pro%') ORDER BY created"
   ).all();
 }
+
+/**
+ * Daily grant ledger: which (account, task_id) already earned credit TODAY.
+ * The server gives no claimed/unclaimed signal (task_status=4 + err_no=0 acks
+ * repeat for already-granted rewards — the phantom +160s), so the local
+ * ledger is what keeps grant rounds idempotent and totals honest. Rows are
+ * day-scoped: daily task credits expire, tomorrow starts a fresh set.
+ */
+export function ensureCreditGrants(db) {
+  db.exec('CREATE TABLE IF NOT EXISTS credit_grants (username TEXT, task_id INTEGER, day TEXT, reward INTEGER)');
+}
+
+// Today's already-granted task_ids for one account.
+export function grantsToday(db, username, day = new Date().toISOString().slice(0, 10)) {
+  return new Set(
+    db.prepare('SELECT task_id FROM credit_grants WHERE username=? AND day=?').all(username, day).map((r) => r.task_id)
+  );
+}
+
+// Record one grant (idempotent).
+export function recordGrant(db, username, taskId, reward, day = new Date().toISOString().slice(0, 10)) {
+  db.prepare('INSERT INTO credit_grants (username, task_id, day, reward) VALUES (?,?,?,?)')
+    .run(username, taskId, day, reward);
+}

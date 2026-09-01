@@ -12,7 +12,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from '../src/util/util.js';
-import { openAccountsDb, capcutStats, updateCapcutCredits } from '../src/infra/db.js';
+import { openAccountsDb, capcutStats, updateCapcutCredits, ensureCreditGrants, grantsToday, recordGrant } from '../src/infra/db.js';
 import { claimAll } from '../src/core/claim.js';
 
 const PKG_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -26,6 +26,7 @@ const log = (m) => console.log(`[${new Date().toTimeString().slice(0, 8)}] ${m}`
 loadEnv();
 
 const db = openAccountsDb('');
+ensureCreditGrants(db);
 const stats = capcutStats(db);
 log(`capcut.com queue: ${stats.registered} registered / ${stats.unregistered} unregistered / ${stats.poisoned} poisoned`);
 const rows = one
@@ -46,11 +47,15 @@ let ok = 0;
 for (const r of rows) {
   log(`[#] ${r.username} (${r.email})`);
   try {
-    const res = await claimAll(r.email, r.password, { log: (m) => log('    ' + m), rounds: 4, gapSeconds: 45 });
+    const prevGrants = grantsToday(db, r.username);
+    const res = await claimAll(r.email, r.password, {
+      log: (m) => log('    ' + m), rounds: 4, gapSeconds: 45,
+      grantedToday: prevGrants, recordGrant: (taskId, reward) => recordGrant(db, r.username, taskId, reward),
+    });
     // nothing to claim today -> keep the DB's existing balance; else write the
     // fresh claimed-sum (daily credits expire — yesterday's number is stale)
     const prev = db.prepare('SELECT capcut_credits c FROM accounts WHERE username=?').get(r.username)?.c ?? 0;
-    const total = res.done.length ? res.total : prev;
+    const total = res.total > 0 ? prev + res.total : prev;
     updateCapcutCredits(db, r.username, total, null);
     if (total > 0) ok++;
     log(`    → total ${total}${res.sharkBlocked ? ` (${res.sharkBlocked} shark-blocked)` : ''}`);

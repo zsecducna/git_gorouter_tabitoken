@@ -86,7 +86,7 @@ export async function register(email, password, code, birthday, cookie) {
 // ({ waitForCode, release }); settings supplies CAPCUT_REGION-agnostic bits.
 // Returns the claimAll result (grant-sum ledger) or null on failure.
 export async function signupAndClaim(email, password, mailbox, {
-  log = () => {}, codeTimeout = 300, birthday = '06/02/1995',
+  log = () => {}, codeTimeout = 300, birthday = '06/02/1995', grantedToday = null, recordGrant = null,
 } = {}) {
   const cookie = await primeCookies();
   const free = await checkEmailFree(email, cookie);
@@ -111,6 +111,6 @@ export async function signupAndClaim(email, password, mailbox, {
 
   // Claim with a fresh login session (register's session also works, but the
   // re-login keeps one code path with claim.js and costs one round-trip).
-  const res = await claimAll(email, password, { log: (m) => log('    ' + m) });
+  const res = await claimAll(email, password, { log: (m) => log('    ' + m), grantedToday, recordGrant });
   return res;
 }

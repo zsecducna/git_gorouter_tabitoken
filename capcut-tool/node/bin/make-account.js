@@ -9,7 +9,7 @@
 // rented gmail, marks registered with the grant-sum credit total.
 
 import { loadEnv } from '../src/util/util.js';
-import { openAccountsDb, ensureCapcutColumns, claimNextCapcut, setCapcutEmail, markCapcutRegistered, markCapcutPoisoned, capcutStats } from '../src/infra/db.js';
+import { openAccountsDb, ensureCapcutColumns, claimNextCapcut, setCapcutEmail, markCapcutRegistered, markCapcutPoisoned, capcutStats, ensureCreditGrants, grantsToday, recordGrant } from '../src/infra/db.js';
 import { OkotpClient, makeOrderMailbox } from '../src/infra/okotp.js';
 import { ensureEmailPool, poolClaim } from '../src/infra/email-pool.js';
 import { signupAndClaim } from '../src/core/node-signup.js';
@@ -29,6 +29,7 @@ if (settings.MAIL_PROVIDER !== 'okotp' || !(settings.OTP_API_KEY || process.env.
 
 const db = openAccountsDb('');
 ensureCapcutColumns(db);
+ensureCreditGrants(db);
 const okotp = new OkotpClient(settings.OTP_API_KEY || process.env.OTP_API_KEY, {
   baseUrl: settings.OTP_BASE || 'https://api.okotp.com', log: () => {},
 });
@@ -66,6 +67,8 @@ for (let i = 0; i < N; i++) {
     const res = await signupAndClaim(email, row.password, mailbox, {
       log: (m) => log(m),
       codeTimeout: Number(settings.OTP_CODE_TIMEOUT) || 300,
+      grantedToday: grantsToday(db, row.username),
+      recordGrant: (taskId, reward) => recordGrant(db, row.username, taskId, reward),
     });
     if (!res) throw new Error('signup failed (see log)');
     markCapcutRegistered(db, row.username, { credits: res.total, plan: 'free' });

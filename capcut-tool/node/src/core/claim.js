@@ -68,7 +68,10 @@ async function post(cookie, url, payload) {
 // Claim everything claimable for one account. `db` (optional) collects the
 // cookie jar between calls; revisit is internal. Returns
 // { uid, tasks, done, sharkBlocked, credit, total }.
-export async function claimAll(email, password, { log = () => {}, rounds = 1, gapSeconds = 45 } = {}) {
+export async function claimAll(email, password, {
+  log = () => {}, rounds = 1, gapSeconds = 45,
+  grantedToday = null, recordGrant = null, concurrency = 5,
+} = {}) {
   const { uid, cookie } = await nodeLogin(email, password);
   log(`logged in user_id=${uid}`);
 
@@ -88,31 +91,43 @@ export async function claimAll(email, password, { log = () => {}, rounds = 1, ga
   const done = [];
   let grantSum = 0;
   let sharkBlocked = 0;
+
+  // Small-concurrency map — the calls are independent (user: why not
+  // parallel?). 5 keeps the burst browser-like instead of a 11-wide spike.
+  const mapPool = async (items, worker) => {
+    const out = [];
+    for (let i = 0; i < items.length; i += concurrency) {
+      out.push(...(await Promise.all(items.slice(i, i + concurrency).map(worker))));
+    }
+    return out;
+  };
   // One do_action per task, then ROUNDS of grant_reward: task instances
   // complete asynchronously server-side ("no completed unrewarded instance
   // found", measured 2026-09-02) — the browser flow covered this with a slow
   // sweep; headless just re-grants after a short gap until the sum stops
   // growing (grantRounds caps the wait).
-  const grantable = todo.filter((t) => t.task_id != null);
-  for (const t of todo) {
-    const title = t?.task_view?.title || t.task_key;
+  await mapPool(todo, async (t) => {
     const rep = await post(cookie, DO_ACTION_URL, { action_key: t.task_key, op_id: makeOpId(t.task_key, uid) });
     if (rep.err_no && rep.err_no !== 0) {
-      log(`  [i] ${title}: do_action err_no=${rep.err_no} ${(rep.err_tips || '').slice(0, 50)}`);
+      log(`  [i] ${t?.task_view?.title || t.task_key}: do_action err_no=${rep.err_no} ${(rep.err_tips || '').slice(0, 50)}`);
     }
-    done.push(t.task_key);
-  }
-  // Deduped grant rounds: grant_reward re-acknowledges an already-granted
-  // task with err_no=0 (measured live — a naive retry loop double-counted
-  // +160/round), so track granted task_ids and only count NEW grants. Rounds
-  // chase the async instance ripening ("no completed unrewarded instance"),
-  // which takes minutes; `rounds`/`gap` tune patience (make-account uses 1
-  // round to stay fast; bin/claim.js harvests the rest later).
-  const grantedIds = new Set();
+  });
+  for (const t of todo) done.push(t.task_key);
+  // Grant targets: EVERY task with an id not yet in today's local ledger —
+  // ripened-but-unrewarded tasks sit at status=4 and must not be skipped
+  // (that gap left 9/11 rewards unclaimed, caught 2026-09-02).
+  const grantedIds = new Set(grantedToday || []);
+  const grantable = tasks.filter((t) => t.task_id != null && !grantedIds.has(t.task_id) && !SKIP_KEYS.has(t.task_key));
+  // Grant rounds are ledger-idempotent: grant_reward re-acknowledges an
+  // already-granted task with err_no=0 (measured live — a naive retry loop
+  // double-counted +160/round), so only NEW ids count. Rounds chase the async
+  // instance ripening ("no completed unrewarded instance"), which takes
+  // minutes; `rounds`/`gapSeconds` tune patience (make-account uses 1 round
+  // to stay fast; bin/claim.js harvests the rest later).
   const grantRound = async (roundNo) => {
     let gained = 0;
-    for (const t of grantable) {
-      if (grantedIds.has(t.task_id)) continue;
+    await mapPool(grantable, async (t) => {
+      if (grantedIds.has(t.task_id)) return;
       const title = t?.task_view?.title || t.task_key;
       const reward = t?.task_reward_view?.reward_amount || 0;
       const g = await post(cookie, GRANT_REWARD_URL, { task_id: t.task_id });
@@ -126,9 +141,10 @@ export async function claimAll(email, password, { log = () => {}, rounds = 1, ga
         grantedIds.add(t.task_id);
         grantSum += reward;
         gained += reward;
+        recordGrant?.(t.task_id, reward);
         log(`  [ok] +${reward} — ${title}`);
       }
-    }
+    });
     return gained;
   };
   const maxRounds = Number(rounds ?? 1) || 1;
@@ -145,7 +161,7 @@ export async function claimAll(email, password, { log = () => {}, rounds = 1, ga
   // headless is the SUM OF SUCCESSFUL GRANTS: on the validated gmail account
   // every err_no=0 grant eventually landed (11 x rewards = exactly 1540).
   // `credit` stays empty from Node; `total` = sum of granted rewards.
-  const granted = done.length ? grantSum : 0;
-  log(`claimed-sum: ${granted}`);
-  return { uid, tasks, done, sharkBlocked, credit: {}, total: granted };
+  // Sum of NEW grants this pass (ledger already holds the history).
+  log(`claimed-sum: ${grantSum}`);
+  return { uid, tasks, done, sharkBlocked, credit: {}, total: grantSum };
 }

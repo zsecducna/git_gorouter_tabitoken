@@ -25,6 +25,7 @@ const settings = {};
 for (const k of Object.keys(cfg)) if (/^[A-Z][A-Z0-9_]*$/.test(k)) settings[k] = cfg[k];
 
 const N = Number(process.argv[2] || 1);
+const NO_VERIFY = process.argv.includes('--no-verify'); // batch mode: creation only, rows stay pending
 if (!Number.isFinite(N) || N < 1) { log('usage: node bin/make-account.js <count>'); process.exit(2); }
 if (settings.MAIL_PROVIDER !== 'okotp' || !(settings.OTP_API_KEY || process.env.OTP_API_KEY)) {
   log('[!] browserless mode needs MAIL_PROVIDER=okotp + OTP_API_KEY (config.js or .env)');
@@ -108,9 +109,13 @@ async function readActual(page, email, password) {
 const MAX_WAIT_MIN = Number(process.env.CAPCUT_VERIFY_WAIT_MIN || 20);
 const deadline = Date.now() + MAX_WAIT_MIN * 60 * 1000;
 let completed = 0;
-const handle = await openBrowser(settings, { name: 'make-verify', rawProxy: null, log: () => {} });
+if (NO_VERIFY || N <= 0) {
+  if (NO_VERIFY) log('(verification phase skipped — run bin/verify.js or bin/batch.js later)');
+  // N<=0 with verification enabled = verify-only mode (used by bin/batch.js)
+}
+const handle = (NO_VERIFY) ? null : await openBrowser(settings, { name: 'make-verify', rawProxy: null, log: () => {} });
 try {
-  while (Date.now() < deadline) {
+  while (handle && Date.now() < deadline) {
     const pending = db.prepare("SELECT username,email,password FROM accounts WHERE site='capcut.com' AND status='pending' ORDER BY created").all();
     if (!pending.length) break;
     for (const p of pending) {
@@ -129,7 +134,7 @@ try {
     }
   }
 } finally {
-  await closeBrowser(handle, { settings });
+  if (handle) await closeBrowser(handle, { settings });
 }
 const stillPending = db.prepare("SELECT COUNT(*) c FROM accounts WHERE site='capcut.com' AND status='pending'").get().c;
 log(`done: ${completed} verified+registered${stillPending ? `, ${stillPending} still pending (run bin/verify.js later)` : ''} — ${JSON.stringify(capcutStats(db))}`);
